@@ -24,19 +24,33 @@
     <li><a href="{% url 'logout' %}">Log out</a></li>
   {% endif %}
 </ul> 
-<nav class="light-blue">
-  <div class="nav-wrapper">
-    <a href="{% url 'index' %}" class="brand-logo">Home</a>
+
+
+
+<nav class="blue z-depth-1">
+  <div class="nav-wrapper container">
+    <!-- Home Icon -->
+    <a href="{% url 'index' %}" class="brand-logo black-text">
+      <i class="material-icons left">movie</i>Home
+    </a>
+
     <ul class="right hide-on-med-and-down">
-      <!-- Dropdown Trigger -->
-    {% if user.is_authenticated %}
-      <li><a class="dropdown-trigger" href="#!" data-target="dropdown1">{{ user.username }}<i class="material-icons right">arrow_drop_down</i></a>
-    {% else %}
-      <li><a href="{% url 'login' %}">Please sign in</a></li>
-    {% endif %}
-
-
-      </li>
+      {% if user.is_authenticated %}
+        <!-- Profile Dropdown -->
+        <li>
+          <a class="dropdown-trigger black-text" href="#!" data-target="dropdown1">
+            <i class="material-icons left">account_circle</i>{{ user.username }}
+            <i class="material-icons right">arrow_drop_down</i>
+          </a>
+        </li>
+      {% else %}
+        <!-- Sign in button -->
+        <li>
+          <a href="{% url 'login' %}" class="waves-effect waves-light btn-small blue">
+            <i class="material-icons left">login</i>Sign In
+          </a>
+        </li>
+      {% endif %}
     </ul>
   </div>
 </nav>
