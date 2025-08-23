@@ -227,27 +227,6 @@ def addMoviesWatched(request, imdb_id):
 
 
 
-def Rate(request, imdb_id):
-	movie = Movie.objects.get(imdbID=imdb_id)
-	user = request.user
 
-	if request.method == 'POST':
-		form = RateForm(request.POST)
-		if form.is_valid():
-			rate = form.save(commit=False)
-			rate.user = user
-			rate.movie = movie
-			rate.save()
-			return HttpResponseRedirect(reverse('movie-details', args=[imdb_id]))
-	else:
-		form = RateForm()
-
-	template = loader.get_template('rate.html')
-
-	context = {
-		'form': form, 
-		'movie': movie,
-	}
-
-	return HttpResponse(template.render(context, request))
+###################  Rate part here  #######################
 
