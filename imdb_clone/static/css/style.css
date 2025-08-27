@@ -135,20 +135,23 @@ footer.page-footer {
   margin-left: 10px;
 }
 
+
+
+
+
+
 /* Movie cards */
-.card {
-  border-radius: 12px;
-  overflow: hidden;
-  transition: 0.3s ease-in-out;
-}
+/* Movie cards */
+
+
 .card:hover {
   transform: translateY(-5px);
   box-shadow: 0 10px 25px rgba(0,0,0,0.5);
 }
-.card-image img {
-  height: 350px;
-  object-fit: cover;
-}
+
+
+/* Fix all cards to same height */
+
 
 
 
