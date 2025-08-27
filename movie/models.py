@@ -26,12 +26,11 @@ class Genre(models.Model):
 			self.slug = slugify(self.title)
 		return super().save(*args, **kwargs)
 
-class Rating(models.Model):
-	source = models.CharField(max_length=50)
-	rating = models.CharField(max_length=10)
 
 	def __str__(self):
-		return self.source
+		return self.Title
+
+
 
 class Movie(models.Model):
 	Title = models.CharField(max_length=200)
@@ -76,40 +75,5 @@ class Movie(models.Model):
 		return super().save(*args, **kwargs)
 
 
-RATE_CHOICES = [
-	(1, '1 - Trash'),
-	(2, '2 - Horrible'),
-	(3, '3 - Terrible'),
-	(4, '4 - Bad'),
-	(5, '5 - OK'),
-	(6, '6 - Watchable'),
-	(7, '7 - Good'),
-	(8, '8 - Very Good'),
-	(9, '9 - Perfect'),
-	(10, '10 - Master Piece'), 
-]
 
 
-class Review(models.Model):
-	user = models.ForeignKey(User, on_delete=models.CASCADE)
-	movie = models.ForeignKey(Movie, on_delete=models.CASCADE)
-	date = models.DateTimeField(auto_now_add=True)
-	text = models.TextField(max_length=3000, blank=True)
-	rate = models.PositiveSmallIntegerField(choices=RATE_CHOICES)
-	likes = models.PositiveIntegerField(default=0)
-	unlikes = models.PositiveIntegerField(default=0)
-	comment_count = models.PositiveIntegerField(default=0)
-
-	class Meta:
-		unique_together = ['user', 'movie']
-
-	def __str__(self):
-		return self.user.username
-
-class Likes(models.Model):
-	user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_like')
-	type_like = models.PositiveSmallIntegerField()
-	review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='review_like')
-
-	class Meta:
-		unique_together = ['user', 'review', 'type_like']
