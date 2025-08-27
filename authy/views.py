@@ -18,7 +18,14 @@ from django.template import loader
 from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.core.paginator import Paginator
+import re
 # Create your views here.
+
+
+def validate_imdb_id(imdb_id):
+	"""Validate IMDB ID format (tt followed by 7-8 digits)"""
+	pattern = r'^tt\d{7,8}$'
+	return bool(re.match(pattern, imdb_id))
 
 
 def Signup(request):
@@ -116,11 +123,6 @@ def UserProfile(request, username):
 
 	return HttpResponse(template.render(context, request))
 
-
-# UserProfileMovieswatched,UserProfileSeriesWatched, UserProfileWatchList,  UserProfileMoviesReviewed, ReviewDetail, like, unlike functions are to be added below:
-#=================================================================================================
-
-
 def UserProfileMoviesWatched(request, username):
 	user = get_object_or_404(User, username=username)
 	profile = Profile.objects.get(user=user)
@@ -213,3 +215,169 @@ def UserProfileWatchList(request, username):
 	template = loader.get_template('profile.html')
 
 	return HttpResponse(template.render(context, request))
+
+def UserProfileMoviesReviewed(request, username):
+	user = get_object_or_404(User, username=username)
+	profile = Profile.objects.get(user=user)
+
+	#MovieBoxData
+	mWatched_count = profile.watched.filter(Type='movie').count()
+	sWatched_count = profile.watched.filter(Type='series').count()
+	watch_list_count = profile.to_watch.all().count()
+	m_reviewd_count = Review.objects.filter(user=user).count()
+
+	#Movies List
+	movies = Review.objects.filter(user=user)
+	paginator = Paginator(movies, 9)
+	page_number = request.GET.get('page')
+	movie_data = paginator.get_page(page_number)
+
+
+	context = {
+		'profile': profile,
+		'mWatched_count': mWatched_count,
+		'sWatched_count': sWatched_count,
+		'watch_list_count': watch_list_count,
+		'm_reviewd_count': m_reviewd_count,
+		'movie_data': movie_data,
+		'list_title': 'Reviewed',
+	}
+
+	template = loader.get_template('profile.html')
+
+	return HttpResponse(template.render(context, request))
+
+def ReviewDetail(request, username, imdb_id):
+	user_comment = request.user
+	user = get_object_or_404(User, username=username)
+	movie = Movie.objects.get(imdbID=imdb_id)
+	review = Review.objects.get(user=user, movie=movie)
+
+	#Comment stuff:
+	comments = Comment.objects.filter(review=review).order_by('date')
+
+	#Comment Form stuff:
+	if request.method == 'POST':
+		form = CommentForm(request.POST)
+		if form.is_valid():
+			comment = form.save(commit=False)
+			comment.review = review
+			comment.user = user_comment
+			comment.save()
+			
+			# Update comment count
+			review.comment_count = Comment.objects.filter(review=review).count()
+			review.save()
+			
+			# Redirect back to movie details page if user came from there
+			referer = request.META.get('HTTP_REFERER', '')
+			if 'movie-details' in referer or 'index' in referer:
+				return HttpResponseRedirect(reverse('movie-details', args=[imdb_id]))
+			else:
+				return HttpResponseRedirect(reverse('user-review', args=[username, imdb_id]))
+	else:
+		form = CommentForm()
+
+
+	# Check if current user can delete this review (only the review owner can delete)
+	can_delete = user_comment == user
+
+	context = {
+		'review': review,
+		'movie': movie,
+		'comments': comments,
+		'form': form,
+		'can_delete': can_delete,
+		'current_user': user_comment,
+	}
+
+	template = loader.get_template('movie_review.html')
+
+	return HttpResponse(template.render(context, request))
+
+def like(request, username, imdb_id):
+	# Validate IMDB ID format
+	if not validate_imdb_id(imdb_id):
+		return HttpResponseRedirect(reverse('index'))
+	
+	# Check if user is authenticated
+	if not request.user.is_authenticated:
+		return HttpResponseRedirect(reverse('login'))
+	
+	try:
+		user_liking = request.user
+		user_review = get_object_or_404(User, username=username)
+		movie = Movie.objects.get(imdbID=imdb_id)
+		review = Review.objects.get(user=user_review, movie=movie)
+		
+		# Prevent users from liking their own reviews
+		if user_liking == user_review:
+			return HttpResponseRedirect(reverse('user-review', args=[username, imdb_id]))
+		
+		current_likes = review.likes
+
+		liked = Likes.objects.filter(user=user_liking, review=review, type_like=2).count()
+
+		if not liked:
+			like = Likes.objects.create(user=user_liking, review=review, type_like=2)
+			current_likes = current_likes + 1
+
+		else:
+			Likes.objects.filter(user=user_liking, review=review, type_like=2).delete()
+			current_likes = current_likes - 1
+
+		review.likes = current_likes
+		review.save()
+
+		# Redirect back to movie details page if user came from there
+		referer = request.META.get('HTTP_REFERER', '')
+		if 'movie-details' in referer or 'index' in referer:
+			return HttpResponseRedirect(reverse('movie-details', args=[imdb_id]))
+		else:
+			return HttpResponseRedirect(reverse('user-review', args=[username, imdb_id]))
+	except (User.DoesNotExist, Movie.DoesNotExist, Review.DoesNotExist):
+		return HttpResponseRedirect(reverse('index'))
+
+def unlike(request, username, imdb_id):
+	# Validate IMDB ID format
+	if not validate_imdb_id(imdb_id):
+		return HttpResponseRedirect(reverse('index'))
+	
+	# Check if user is authenticated
+	if not request.user.is_authenticated:
+		return HttpResponseRedirect(reverse('login'))
+	
+	try:
+		user_unliking = request.user
+		user_review = get_object_or_404(User, username=username)
+		movie = Movie.objects.get(imdbID=imdb_id)
+		review = Review.objects.get(user=user_review, movie=movie)
+		
+		# Prevent users from disliking their own reviews
+		if user_unliking == user_review:
+			return HttpResponseRedirect(reverse('user-review', args=[username, imdb_id]))
+		
+		current_likes = review.unlikes
+
+		liked = Likes.objects.filter(user=user_unliking, review=review, type_like=1).count()
+
+		if not liked:
+			like = Likes.objects.create(user=user_unliking, review=review, type_like=1)
+			current_likes = current_likes + 1
+
+		else:
+			Likes.objects.filter(user=user_unliking, review=review, type_like=1).delete()
+			current_likes = current_likes - 1
+
+		review.unlikes = current_likes
+		review.save()
+
+		# Redirect back to movie details page if user came from there
+		referer = request.META.get('HTTP_REFERER', '')
+		if 'movie-details' in referer or 'index' in referer:
+			return HttpResponseRedirect(reverse('movie-details', args=[imdb_id]))
+		else:
+			return HttpResponseRedirect(reverse('user-review', args=[username, imdb_id]))
+	except (User.DoesNotExist, Movie.DoesNotExist, Review.DoesNotExist):
+		return HttpResponseRedirect(reverse('index'))
+

@@ -8,3 +8,9 @@ class RateForm(forms.ModelForm):
 	class Meta:
 		model = Review
 		fields = ('text', 'rate')
+
+	def clean_rate(self):
+		rate = self.cleaned_data.get('rate')
+		if not rate:
+			raise forms.ValidationError("Rating is required.")
+		return rate

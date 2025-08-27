@@ -15,6 +15,13 @@ from django.contrib.auth.models import User
 from movie.forms import RateForm
 
 import requests
+import re
+
+
+def validate_imdb_id(imdb_id):
+	"""Validate IMDB ID format (tt followed by 7-8 digits)"""
+	pattern = r'^tt\d{7,8}$'
+	return bool(re.match(pattern, imdb_id))
 
 
 # Create your views here.
@@ -55,17 +62,24 @@ def pagination(request, query, page_number):
 
     return HttpResponse(template.render(context, request))
 
-
-
-####   sadia Tasnim, write your movieDetails  part here
 def movieDetails(request, imdb_id):
+	# Validate IMDB ID format
+	if not validate_imdb_id(imdb_id):
+		return HttpResponseRedirect(reverse('index'))
 
 	if Movie.objects.filter(imdbID=imdb_id).exists():
 		movie_data = Movie.objects.get(imdbID=imdb_id)
-		reviews = Review.objects.filter(movie=movie_data)
+		reviews = Review.objects.filter(movie=movie_data).select_related('user', 'user__profile').prefetch_related('comments__user', 'comments__user__profile')
 		reviews_avg = reviews.aggregate(Avg('rate'))
 		reviews_count = reviews.count()
 		our_db = True
+
+		# Check if current user has already reviewed this movie
+		user_has_reviewed = False
+		current_user = None
+		if request.user.is_authenticated:
+			current_user = request.user
+			user_has_reviewed = Review.objects.filter(user=request.user, movie=movie_data).exists()
 
 		context = {
 			'movie_data': movie_data,
@@ -73,10 +87,12 @@ def movieDetails(request, imdb_id):
 			'reviews_avg': reviews_avg,
 			'reviews_count': reviews_count,
 			'our_db': our_db,
+			'user_has_reviewed': user_has_reviewed,
+			'current_user': current_user,
 		}
 
 	else:
-		url = 'http://www.omdbapi.com/?apikey=c4dbf384&i=' + imdb_id
+		url = 'http://www.omdbapi.com/?apikey=4eb57329&i=' + imdb_id
 		response = requests.get(url)
 		movie_data = response.json()
 
@@ -106,7 +122,7 @@ def movieDetails(request, imdb_id):
 			r, created = Rating.objects.get_or_create(source=rate['Source'], rating=rate['Value'])
 			rating_objs.append(r)
 
-		if movie_data['Type'] == 'movie':
+		if movie_data['Type'] == 'movie':  #update for movies
 			m, created = Movie.objects.get_or_create(
 				Title=movie_data['Title'],
 				Year=movie_data['Year'],
@@ -134,7 +150,7 @@ def movieDetails(request, imdb_id):
 			m.Actors.set(actor_objs)
 			m.Ratings.set(rating_objs)
 
-		else:
+		else:             #create
 			m, created = Movie.objects.get_or_create(
 				Title=movie_data['Title'],
 				Year=movie_data['Year'],
@@ -178,8 +194,6 @@ def movieDetails(request, imdb_id):
 	return HttpResponse(template.render(context, request))
 
 
-
-
 def genres(request, genre_slug):
 	genre = get_object_or_404(Genre, slug=genre_slug)
 	movies = Movie.objects.filter(Genre=genre)
@@ -200,8 +214,6 @@ def genres(request, genre_slug):
 	return HttpResponse(template.render(context, request))
 
 
-
-####   sadia Tasnim, write your addMoviesToWatch, addMoviesWatched part here
 def addMoviesToWatch(request, imdb_id):
 	movie = Movie.objects.get(imdbID=imdb_id)
 	user = request.user
@@ -226,7 +238,82 @@ def addMoviesWatched(request, imdb_id):
 	return HttpResponseRedirect(reverse('movie-details', args=[imdb_id]))
 
 
+def Rate(request, imdb_id):
+	# Validate IMDB ID format
+	if not validate_imdb_id(imdb_id):
+		return HttpResponseRedirect(reverse('index'))
+	
+	# Check if user is authenticated
+	if not request.user.is_authenticated:
+		return HttpResponseRedirect(reverse('login'))
+	
+	try:
+		movie = Movie.objects.get(imdbID=imdb_id)
+		user = request.user
+
+		# Check if user already reviewed this movie
+		existing_review = Review.objects.filter(user=user, movie=movie).first()
+		if existing_review:
+			# Redirect to movie details if user already reviewed
+			return HttpResponseRedirect(reverse('movie-details', args=[imdb_id]))
+
+		if request.method == 'POST':
+			form = RateForm(request.POST)
+			if form.is_valid():
+				rate = form.save(commit=False)
+				rate.user = user
+				rate.movie = movie
+				rate.save()
+				return HttpResponseRedirect(reverse('movie-details', args=[imdb_id]))
+		else:
+			form = RateForm()
+
+		template = loader.get_template('rate.html')
+
+		context = {
+			'form': form, 
+			'movie': movie,
+		}
+
+		return HttpResponse(template.render(context, request))
+	except Movie.DoesNotExist:
+		return HttpResponseRedirect(reverse('index'))
 
 
-###################  Rate part here  #######################
+def DeleteReview(request, imdb_id):
+	"""Delete a user's own review for a movie"""
+	# Validate IMDB ID format
+	if not validate_imdb_id(imdb_id):
+		return HttpResponseRedirect(reverse('index'))
+	
+	# Check if user is authenticated
+	if not request.user.is_authenticated:
+		return HttpResponseRedirect(reverse('login'))
+	
+	try:
+		movie = Movie.objects.get(imdbID=imdb_id)
+		user = request.user
+		
+		# Find the user's review for this movie
+		review = Review.objects.filter(user=user, movie=movie).first()
+		
+		if not review:
+			# User doesn't have a review for this movie
+			return HttpResponseRedirect(reverse('movie-details', args=[imdb_id]))
+		
+		if request.method == 'POST':
+			# Delete the review
+			review.delete()
+			return HttpResponseRedirect(reverse('movie-details', args=[imdb_id]))
+		else:
+			# Show confirmation page
+			template = loader.get_template('delete_review_confirm.html')
+			context = {
+				'movie': movie,
+				'review': review,
+			}
+			return HttpResponse(template.render(context, request))
+			
+	except Movie.DoesNotExist:
+		return HttpResponseRedirect(reverse('index'))
 

@@ -21,7 +21,14 @@
     <li><a href="{% url 'profile' user.username %}">Profile</a></li>
     <li><a href="{% url 'change-password' %}">Change Password</a></li>
     <li class="divider"></li>
-    <li><a href="{% url 'logout' %}">Log out</a></li>
+    <li>
+      <form method="post" action="{% url 'logout' %}" style="margin: 0; padding: 0;">
+        {% csrf_token %}
+        <button type="submit" style="background: none; border: none; color: rgba(0,0,0,0.87); font-size: 14px; padding: 14px 16px; width: 100%; text-align: left; cursor: pointer; font-family: inherit;">
+          Log out
+        </button>
+      </form>
+    </li>
   {% endif %}
 </ul> 
 
