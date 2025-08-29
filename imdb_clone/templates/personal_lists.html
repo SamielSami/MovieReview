@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="row">
+	<div class="col s12 m12">
+		<h4>Your Personal Lists</h4>
+		<div class="divider"></div>
+
+		<form method="post" class="section">
+			{% csrf_token %}
+			<div class="input-field">
+				<input id="list_name" name="name" type="text" maxlength="60" required>
+				<label for="list_name">New list name (max 5 lists)</label>
+			</div>
+			<p>
+				<label>
+					<input type="checkbox" name="is_private"/>
+					<span>Private</span>
+				</label>
+			</p>
+			<button type="submit" class="btn"><i class="material-icons left">add</i>Create</button>
+		</form>
+
+		<ul class="collection">
+			{% for l in lists %}
+			<li class="collection-item">
+				<span><b>{{ l.name }}</b> ({{ l.items_count }} items)</span>
+				<span class="secondary-content">
+					<a href="{% url 'personal-list-detail' profile.user.username l.id %}" class="btn-flat">Open</a>
+					<a href="{% url 'delete-personal-list' l.id %}" class="btn-flat red-text">Delete</a>
+				</span>
+			</li>
+			{% empty %}
+			<li class="collection-item">No personal lists yet.</li>
+			{% endfor %}
+		</ul>
+	</div>
+</div>
+{% endblock %}
