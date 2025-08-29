@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="row">
+	<div class="col s12 m8 offset-m2">
+		<h5>Add "{{ movie.Title }}" to your personal lists</h5>
+		<div class="divider"></div>
+		<form method="post" class="section">
+			{% csrf_token %}
+			<p>Select one or more lists:</p>
+			{% for l in lists %}
+			<p>
+				<label>
+					<input type="checkbox" name="list_ids" value="{{ l.id }}">
+					<span>{{ l.name }}</span>
+				</label>
+			</p>
+			{% empty %}
+			<p>You don't have any lists yet. <a href="{% url 'personal-lists' user.username %}">Create one</a>.</p>
+			{% endfor %}
+			<button type="submit" class="btn"><i class="material-icons left">playlist_add</i>Add</button>
+			<a href="{% url 'movie-details' movie.imdbID %}" class="btn-flat">Cancel</a>
+		</form>
+	</div>
+</div>
+{% endblock %}

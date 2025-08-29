@@ -62,6 +62,15 @@
   <div class="container">
     <div class="section">
 
+    {% if messages %}
+      <ul class="collection">
+        {% for message in messages %}
+          <li class="collection-item {{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+
     {% block content %}
     {% endblock %}
 
